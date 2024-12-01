@@ -3,6 +3,8 @@ import { ValidateEnv } from '@utils/validateEnv';
 import { UserController } from '@controllers/users.controller';
 import { AuthController } from '@controllers/auth.controller';
 import { db } from '@utils/mongodb';
+import { BookingController } from '@controllers/bookings.controller';
+import { RoomController } from '@controllers/rooms.controller';
 
 ValidateEnv();
 
@@ -10,7 +12,7 @@ const bootstrap = async () => {
   try {
     await db.connect().then(() => {
       console.log('Database connected');
-      const app = new App([UserController, AuthController]);
+      const app = new App([UserController, AuthController, BookingController, RoomController]);
       app.listen();
     });
   } catch (error) {

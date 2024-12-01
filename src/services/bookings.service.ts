@@ -4,6 +4,7 @@ import { CreateBookingDto, UpdateBookingDto } from '@dtos/bookings.dto';
 import { HttpException } from '@exceptions/HttpException';
 import { Booking, BookingStatus } from '@interfaces/bookings.interface';
 import { db } from '@utils/mongodb';
+import { PaymentStatus } from '@interfaces/bookings.interface';
 
 @Service()
 export class BookingService {
@@ -11,6 +12,11 @@ export class BookingService {
 
   constructor() {
     this.bookings = db.getDb().collection<Booking>('bookings');
+
+    // Create indexes
+    this.bookings.createIndex({ roomId: 1, startDate: 1, endDate: 1 });
+    this.bookings.createIndex({ userId: 1 });
+    this.bookings.createIndex({ status: 1 });
   }
 
   public async createBooking(userId: string, bookingData: CreateBookingDto): Promise<Booking> {
@@ -37,6 +43,10 @@ export class BookingService {
       endDate: bookingData.endDate,
       totalPrice: bookingData.totalPrice,
       status: BookingStatus.PENDING,
+      paymentStatus: PaymentStatus.PENDING,
+      cancellationDeadline: new Date(bookingData.startDate),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const result = await this.bookings.insertOne(booking);

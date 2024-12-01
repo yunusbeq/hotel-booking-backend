@@ -8,6 +8,10 @@ export interface Booking {
   endDate: Date;
   totalPrice: number;
   status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  cancellationDeadline: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export enum BookingStatus {
@@ -15,4 +19,10 @@ export enum BookingStatus {
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  REFUNDED = 'refunded',
 }

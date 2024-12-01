@@ -4,6 +4,7 @@ import { CreateRoomDto } from '@dtos/rooms.dto';
 import { HttpException } from '@exceptions/HttpException';
 import { Room } from '@interfaces/rooms.interface';
 import { db } from '@utils/mongodb';
+import { BookingStatus } from '@interfaces/bookings.interface';
 
 @Service()
 export class RoomService {
@@ -57,13 +58,25 @@ export class RoomService {
       throw new HttpException(400, 'Start date must be before end date');
     }
 
-    const rooms = await this.rooms
+    const bookings = db.getDb().collection('bookings');
+
+    const bookedRoomIds = await bookings.distinct('roomId', {
+      status: { $nin: [BookingStatus.CANCELLED] },
+      $or: [
+        {
+          startDate: { $lte: endDate },
+          endDate: { $gte: startDate },
+        },
+      ],
+    });
+
+    const availableRooms = await this.rooms
       .find({
         isAvailable: true,
-        // Burada ek olarak booking tarihleriyle çakışma kontrolü de eklenebilir
+        _id: { $nin: bookedRoomIds.map(id => new ObjectId(id)) },
       })
       .toArray();
 
-    return rooms;
+    return availableRooms;
   }
 }
