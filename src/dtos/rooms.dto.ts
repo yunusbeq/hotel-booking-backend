@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsNumber, IsBoolean, IsOptional, IsDate } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsBoolean, IsOptional, IsDate, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RoomType } from '@interfaces/rooms.interface';
 
@@ -33,11 +33,11 @@ export class UpdateRoomDto extends CreateRoomDto {
 }
 
 export class RoomAvailabilityDto {
-  @IsDate()
-  @Type(() => Date)
-  startDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  startDate: string;
 
-  @IsDate()
-  @Type(() => Date)
-  endDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  endDate: string;
 }

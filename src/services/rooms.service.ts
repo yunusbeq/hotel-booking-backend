@@ -24,9 +24,41 @@ export class RoomService {
   }
 
   public async findRoomById(roomId: string): Promise<Room> {
-    const room = await this.rooms.findOne({ _id: new ObjectId(roomId) });
-    if (!room) throw new HttpException(404, "Room doesn't exist");
-    return room;
+    try {
+      console.log('Attempting to find room with ID:', roomId);
+
+      if (!roomId || !ObjectId.isValid(roomId)) {
+        console.log('Invalid room ID format:', roomId);
+        throw new HttpException(400, 'Invalid room ID format');
+      }
+
+      const room = await this.rooms.findOne({ _id: new ObjectId(roomId) });
+
+      console.log('Found room:', room);
+
+      if (!room) {
+        console.log('Room not found with ID:', roomId);
+        throw new HttpException(404, "Room doesn't exist");
+      }
+
+      return room;
+    } catch (error) {
+      console.error('Error in findRoomById:', {
+        roomId,
+        error: error.message,
+        stack: error.stack,
+      });
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      if (error.name === 'BSONError') {
+        throw new HttpException(400, 'Invalid room ID format');
+      }
+
+      throw new HttpException(500, 'Error while finding room: ' + error.message);
+    }
   }
 
   public async createRoom(roomData: CreateRoomDto): Promise<Room> {
@@ -82,25 +114,47 @@ export class RoomService {
       throw new HttpException(400, 'Start date must be before end date');
     }
 
-    const bookings = db.getDb().collection('bookings');
+    try {
+      const bookings = db.getDb().collection('bookings');
 
-    const bookedRoomIds = await bookings.distinct('roomId', {
-      status: { $nin: [BookingStatus.CANCELLED] },
-      $or: [
-        {
-          startDate: { $lte: endDate },
-          endDate: { $gte: startDate },
-        },
-      ],
-    });
+      console.log('Searching for available rooms between:', { startDate, endDate });
 
-    const availableRooms = await this.rooms
-      .find({
-        isAvailable: true,
-        _id: { $nin: bookedRoomIds.map(id => new ObjectId(id)) },
-      })
-      .toArray();
+      const bookedRoomIds = await bookings.distinct('roomId', {
+        status: { $nin: [BookingStatus.CANCELLED] },
+        $or: [
+          {
+            startDate: { $lte: endDate },
+            endDate: { $gte: startDate },
+          },
+        ],
+      });
 
-    return availableRooms;
+      console.log('Found booked room IDs:', bookedRoomIds);
+
+      if (!bookedRoomIds || bookedRoomIds.length === 0) {
+        console.log('No bookings found, returning all available rooms');
+        return this.rooms.find({ isAvailable: true }).toArray();
+      }
+
+      const validBookedRoomIds = bookedRoomIds.filter(id => id && ObjectId.isValid(id.toString())).map(id => new ObjectId(id.toString()));
+
+      console.log('Converted room IDs:', validBookedRoomIds);
+
+      const availableRooms = await this.rooms
+        .find({
+          isAvailable: true,
+          _id: {
+            $nin: validBookedRoomIds,
+          },
+        })
+        .toArray();
+
+      console.log('Found available rooms:', availableRooms.length);
+
+      return availableRooms;
+    } catch (error) {
+      console.error('Error in findAvailableRooms:', error);
+      throw new HttpException(500, 'Error while searching for available rooms');
+    }
   }
 }

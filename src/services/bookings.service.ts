@@ -1,6 +1,6 @@
 import { Service } from 'typedi';
 import { Collection, ObjectId } from 'mongodb';
-import { CreateBookingDto, UpdateBookingDto, CancelBookingDto } from '@dtos/bookings.dto';
+import { CreateBookingDto, CancelBookingDto } from '@dtos/bookings.dto';
 import { HttpException } from '@exceptions/HttpException';
 import { Booking, BookingStatus, PaymentStatus } from '@interfaces/bookings.interface';
 import { db } from '@utils/mongodb';
@@ -43,40 +43,49 @@ export class BookingService {
   }
 
   public async createBooking(userId: string, bookingData: CreateBookingDto): Promise<Booking> {
-    if (!ObjectId.isValid(bookingData.roomId)) {
-      throw new HttpException(400, 'Invalid room ID format');
+    try {
+      if (!ObjectId.isValid(bookingData.roomId)) {
+        throw new HttpException(400, 'Invalid room ID format');
+      }
+
+      const roomObjectId = new ObjectId(bookingData.roomId);
+      const userObjectId = new ObjectId(userId);
+
+      const existingBooking = await this.bookings.findOne({
+        roomId: roomObjectId,
+        status: { $ne: BookingStatus.CANCELLED },
+        $or: [
+          {
+            startDate: { $lte: bookingData.endDate },
+            endDate: { $gte: bookingData.startDate },
+          },
+        ],
+      });
+
+      if (existingBooking) {
+        throw new HttpException(409, 'Room is not available for these dates');
+      }
+
+      const booking: Booking = {
+        roomId: roomObjectId,
+        userId: userObjectId,
+        startDate: new Date(bookingData.startDate),
+        endDate: new Date(bookingData.endDate),
+        totalPrice: bookingData.totalPrice,
+        status: BookingStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING,
+        cancellationDeadline: new Date(bookingData.startDate),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await this.bookings.insertOne(booking);
+      return { ...booking, _id: result.insertedId };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      console.error('Error in createBooking:', error);
+      throw new HttpException(500, 'Error while creating booking');
     }
-
-    const existingBooking = await this.bookings.findOne({
-      roomId: new ObjectId(bookingData.roomId),
-      status: { $ne: BookingStatus.CANCELLED },
-      $or: [
-        {
-          startDate: { $lte: bookingData.endDate },
-          endDate: { $gte: bookingData.startDate },
-        },
-      ],
-    });
-
-    if (existingBooking) {
-      throw new HttpException(409, 'Room is not available for these dates');
-    }
-
-    const booking: Booking = {
-      roomId: new ObjectId(bookingData.roomId),
-      userId: new ObjectId(userId),
-      startDate: new Date(bookingData.startDate),
-      endDate: new Date(bookingData.endDate),
-      totalPrice: bookingData.totalPrice,
-      status: BookingStatus.PENDING,
-      paymentStatus: PaymentStatus.PENDING,
-      cancellationDeadline: new Date(bookingData.startDate),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const result = await this.bookings.insertOne(booking);
-    return { ...booking, _id: result.insertedId };
   }
 
   public async cancelBooking(bookingId: string, userId: string, cancelData: CancelBookingDto): Promise<Booking> {

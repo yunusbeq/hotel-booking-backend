@@ -1,45 +1,38 @@
-import { compare, hash } from 'bcrypt';
-import { sign } from 'jsonwebtoken';
 import { Service } from 'typedi';
-import { ObjectId } from 'mongodb';
+import { Collection } from 'mongodb';
+import { hash, compare } from 'bcrypt';
+import { sign } from 'jsonwebtoken';
 import { SECRET_KEY } from '@config';
 import { CreateUserDto } from '@dtos/users.dto';
 import { HttpException } from '@exceptions/HttpException';
-import { TokenData } from '@interfaces/auth.interface';
+import { DataStoredInToken, TokenData } from '@interfaces/auth.interface';
 import { User, UserRole } from '@interfaces/users.interface';
 import { db } from '@utils/mongodb';
-import { DataStoredInToken } from '@interfaces/auth.interface';
-
-const createToken = (user: User): TokenData => {
-  const dataStoredInToken: DataStoredInToken = {
-    id: user._id.toString(),
-    role: user.role,
-  };
-  const expiresIn: number = 60 * 60;
-
-  return { expiresIn, token: sign(dataStoredInToken, SECRET_KEY, { expiresIn }) };
-};
-
-const createCookie = (tokenData: TokenData): string => {
-  return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
-};
+import { Room } from '@interfaces/rooms.interface';
 
 @Service()
 export class AuthService {
-  private users = db.getDb().collection<User>('users');
+  private users: Collection<User>;
+
+  constructor() {
+    this.users = db.getDb().collection<User>('users');
+  }
 
   public createToken(user: User): TokenData {
     const dataStoredInToken: DataStoredInToken = {
       id: user._id.toString(),
-      role: user.role,
+      role: user.role || UserRole.CUSTOMER,
     };
-    const expiresIn: number = 60 * 60;
+    const secretKey: string = SECRET_KEY;
 
-    return { expiresIn, token: sign(dataStoredInToken, SECRET_KEY, { expiresIn }) };
+    return {
+      expiresIn: 60 * 60,
+      token: sign(dataStoredInToken, secretKey, { expiresIn: '24h' }),
+    };
   }
 
   public createCookie(tokenData: TokenData): string {
-    return `Authorization=Bearer ${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
+    return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
   }
 
   public async signup(userData: CreateUserDto): Promise<User> {
@@ -47,21 +40,21 @@ export class AuthService {
     if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
 
     const hashedPassword = await hash(userData.password, 10);
-    const result = await this.users.insertOne({
-      email: userData.email,
+    const createUserData: User = {
+      email: userData.email.toLowerCase(),
       password: hashedPassword,
       role: userData.role || UserRole.CUSTOMER,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    };
 
-    const newUser = await this.users.findOne({ _id: result.insertedId });
-    return newUser;
+    const result = await this.users.insertOne(createUserData);
+    return { ...createUserData, _id: result.insertedId };
   }
 
   public async login(userData: CreateUserDto): Promise<{ cookie: string; findUser: User }> {
     const findUser = await this.users.findOne({ email: userData.email });
-    if (!findUser) throw new HttpException(409, `Email ${userData.email} not found`);
+    if (!findUser) throw new HttpException(409, `This email ${userData.email} was not found`);
 
     const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
     if (!isPasswordMatching) throw new HttpException(409, "Password doesn't match");
@@ -73,11 +66,7 @@ export class AuthService {
   }
 
   public async logout(userData: User): Promise<User> {
-    const findUser = await this.users.findOne({
-      _id: new ObjectId(userData._id),
-      email: userData.email,
-    });
-
+    const findUser = await this.users.findOne({ email: userData.email });
     if (!findUser) throw new HttpException(409, "User doesn't exist");
 
     return findUser;

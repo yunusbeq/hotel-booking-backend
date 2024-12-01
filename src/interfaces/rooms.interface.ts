@@ -1,8 +1,8 @@
 import { ObjectId } from 'mongodb';
 
 export enum RoomType {
-  STANDARD = 'STANDARD',
-  DELUXE = 'DELUXE',
+  BASIC = 'BASIC',
+  PREMIUM = 'PREMIUM',
   SUITE = 'SUITE',
 }
 
