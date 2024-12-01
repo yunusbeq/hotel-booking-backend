@@ -29,8 +29,14 @@ export class RoomService {
     const existingRoom = await this.rooms.findOne({ roomNumber: roomData.roomNumber });
     if (existingRoom) throw new HttpException(409, `Room number ${roomData.roomNumber} already exists`);
 
-    const result = await this.rooms.insertOne(roomData);
-    return { ...roomData, _id: result.insertedId };
+    const newRoom: Room = {
+      ...roomData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.rooms.insertOne(newRoom);
+    return { ...newRoom, _id: result.insertedId };
   }
 
   public async updateRoom(roomId: string, roomData: CreateRoomDto): Promise<Room> {

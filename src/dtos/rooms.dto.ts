@@ -18,6 +18,14 @@ export class CreateRoomDto {
   @IsString()
   @IsOptional()
   public description?: string;
+
+  @IsDate()
+  @IsOptional()
+  public createdAt?: Date;
+
+  @IsDate()
+  @IsOptional()
+  public updatedAt?: Date;
 }
 
 export class UpdateRoomDto extends CreateRoomDto {}

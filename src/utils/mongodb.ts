@@ -39,6 +39,18 @@ class Database {
     }
     return this.db;
   }
+
+  async close(): Promise<void> {
+    try {
+      if (this.client) {
+        await this.client.close();
+        logger.info('MongoDB connection closed');
+      }
+    } catch (error) {
+      logger.error('Error closing MongoDB connection:', error);
+      throw error;
+    }
+  }
 }
 
 export const db = Database.getInstance();

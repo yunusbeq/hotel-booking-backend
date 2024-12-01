@@ -13,4 +13,6 @@ export interface Room {
   price: number;
   isAvailable: boolean;
   description?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

@@ -13,6 +13,7 @@ import { DataStoredInToken } from '@interfaces/auth.interface';
 const createToken = (user: User): TokenData => {
   const dataStoredInToken: DataStoredInToken = {
     id: user._id.toString(),
+    role: user.role,
   };
   const expiresIn: number = 60 * 60;
 
@@ -26,6 +27,20 @@ const createCookie = (tokenData: TokenData): string => {
 @Service()
 export class AuthService {
   private users = db.getDb().collection<User>('users');
+
+  public createToken(user: User): TokenData {
+    const dataStoredInToken: DataStoredInToken = {
+      id: user._id.toString(),
+      role: user.role,
+    };
+    const expiresIn: number = 60 * 60;
+
+    return { expiresIn, token: sign(dataStoredInToken, SECRET_KEY, { expiresIn }) };
+  }
+
+  public createCookie(tokenData: TokenData): string {
+    return `Authorization=Bearer ${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
+  }
 
   public async signup(userData: CreateUserDto): Promise<User> {
     const findUser = await this.users.findOne({ email: userData.email });
@@ -46,13 +61,13 @@ export class AuthService {
 
   public async login(userData: CreateUserDto): Promise<{ cookie: string; findUser: User }> {
     const findUser = await this.users.findOne({ email: userData.email });
-    if (!findUser) throw new HttpException(409, `This email ${userData.email} was not found`);
+    if (!findUser) throw new HttpException(409, `Email ${userData.email} not found`);
 
     const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
-    if (!isPasswordMatching) throw new HttpException(409, 'Password is not matching');
+    if (!isPasswordMatching) throw new HttpException(409, "Password doesn't match");
 
-    const tokenData = createToken(findUser);
-    const cookie = createCookie(tokenData);
+    const tokenData = this.createToken(findUser);
+    const cookie = this.createCookie(tokenData);
 
     return { cookie, findUser };
   }

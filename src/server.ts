@@ -4,25 +4,34 @@ import { UserController } from '@controllers/users.controller';
 import { AuthController } from '@controllers/auth.controller';
 import { db } from '@utils/mongodb';
 import { BookingController } from '@controllers/bookings.controller';
-import { RoomController } from '@controllers/rooms.controller';
-
-ValidateEnv();
+import { RoomsController } from '@controllers/rooms.controller';
+import { logger } from '@utils/logger';
 
 const bootstrap = async () => {
   try {
-    await db.connect().then(() => {
-      console.log('Database connected');
-      const app = new App([UserController, AuthController, BookingController, RoomController]);
-      app.listen();
-    });
+    ValidateEnv();
+
+    await db.connect();
+
+    const app = new App([UserController, AuthController, BookingController, RoomsController]);
+    app.listen();
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 };
 
-bootstrap();
+bootstrap().catch(error => {
+  logger.error('Bootstrap failed:', error);
+  process.exit(1);
+});
 
 process.on('SIGTERM', async () => {
-  process.exit(0);
+  try {
+    await db.close();
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 });

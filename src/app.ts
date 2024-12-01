@@ -10,6 +10,7 @@ import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
 import { ErrorMiddleware } from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import Container from 'typedi';
+import { AuthorizationChecker } from '@middlewares/auth.middleware';
 
 export class App {
   public app: express.Application;
@@ -59,6 +60,7 @@ export class App {
       },
       controllers: controllers,
       defaultErrorHandler: false,
+      authorizationChecker: Container.get(AuthorizationChecker).check,
     });
   }
 
