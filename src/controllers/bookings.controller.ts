@@ -4,6 +4,7 @@ import { CreateBookingDto, UpdateBookingDto, CancelBookingDto } from '@dtos/book
 import { BookingService } from '@services/bookings.service';
 import { RequestWithUser } from '@interfaces/auth.interface';
 import { Booking } from '@interfaces/bookings.interface';
+import { ObjectId } from 'mongodb';
 
 @Service()
 @JsonController()
@@ -11,12 +12,13 @@ export class BookingController {
   public booking = Container.get(BookingService);
 
   private transformResponse(booking: Booking) {
+    if (!booking) return null;
+
     return {
       ...booking,
-      id: booking._id.toString(),
-      _id: booking._id.toString(),
-      roomId: booking.roomId.toString(),
-      userId: booking.userId.toString(),
+      _id: booking._id instanceof ObjectId ? booking._id.toString() : booking._id,
+      roomId: booking.roomId instanceof ObjectId ? booking.roomId.toString() : booking.roomId,
+      userId: booking.userId instanceof ObjectId ? booking.userId.toString() : booking.userId,
     };
   }
 
@@ -42,13 +44,6 @@ export class BookingController {
   async getBooking(@Param('id') bookingId: string, @Req() req: RequestWithUser) {
     const booking = await this.booking.getBookingById(bookingId, req.user._id.toString());
     return { data: this.transformResponse(booking), message: 'findOne' };
-  }
-
-  @Put('/bookings/:id')
-  @Authorized()
-  async updateBookingStatus(@Param('id') bookingId: string, @Body() updateData: UpdateBookingDto, @Req() req: RequestWithUser) {
-    const updatedBooking = await this.booking.updateBookingStatus(bookingId, req.user._id.toString(), updateData);
-    return { data: this.transformResponse(updatedBooking), message: 'updated' };
   }
 
   @Put('/bookings/:id/cancel')

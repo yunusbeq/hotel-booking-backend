@@ -2,9 +2,8 @@ import { Service } from 'typedi';
 import { Collection, ObjectId } from 'mongodb';
 import { CreateBookingDto, UpdateBookingDto, CancelBookingDto } from '@dtos/bookings.dto';
 import { HttpException } from '@exceptions/HttpException';
-import { Booking, BookingStatus } from '@interfaces/bookings.interface';
+import { Booking, BookingStatus, PaymentStatus } from '@interfaces/bookings.interface';
 import { db } from '@utils/mongodb';
-import { PaymentStatus } from '@interfaces/bookings.interface';
 
 @Service()
 export class BookingService {
@@ -36,8 +35,18 @@ export class BookingService {
     return booking;
   }
 
+  public async getUserBookings(userId: string): Promise<Booking[]> {
+    if (!ObjectId.isValid(userId)) {
+      throw new HttpException(400, 'Invalid user ID format');
+    }
+    return this.bookings.find({ userId: new ObjectId(userId) }).toArray();
+  }
+
   public async createBooking(userId: string, bookingData: CreateBookingDto): Promise<Booking> {
-    // Check if room is available for the given dates
+    if (!ObjectId.isValid(bookingData.roomId)) {
+      throw new HttpException(400, 'Invalid room ID format');
+    }
+
     const existingBooking = await this.bookings.findOne({
       roomId: new ObjectId(bookingData.roomId),
       status: { $ne: BookingStatus.CANCELLED },
@@ -56,8 +65,8 @@ export class BookingService {
     const booking: Booking = {
       roomId: new ObjectId(bookingData.roomId),
       userId: new ObjectId(userId),
-      startDate: bookingData.startDate,
-      endDate: bookingData.endDate,
+      startDate: new Date(bookingData.startDate),
+      endDate: new Date(bookingData.endDate),
       totalPrice: bookingData.totalPrice,
       status: BookingStatus.PENDING,
       paymentStatus: PaymentStatus.PENDING,
@@ -70,26 +79,6 @@ export class BookingService {
     return { ...booking, _id: result.insertedId };
   }
 
-  public async getUserBookings(userId: string): Promise<Booking[]> {
-    return this.bookings.find({ userId: new ObjectId(userId) }).toArray();
-  }
-
-  public async updateBookingStatus(bookingId: string, userId: string, updateData: UpdateBookingDto): Promise<Booking> {
-    const booking = await this.getBookingById(bookingId, userId);
-
-    await this.bookings.updateOne(
-      { _id: new ObjectId(bookingId) },
-      {
-        $set: {
-          status: updateData.status,
-          updatedAt: new Date(),
-        },
-      },
-    );
-
-    return { ...booking, status: updateData.status, updatedAt: new Date() };
-  }
-
   public async cancelBooking(bookingId: string, userId: string, cancelData: CancelBookingDto): Promise<Booking> {
     const booking = await this.getBookingById(bookingId, userId);
 
@@ -97,26 +86,15 @@ export class BookingService {
       throw new HttpException(400, 'Booking is already cancelled');
     }
 
-    if (new Date() > booking.cancellationDeadline) {
-      throw new HttpException(400, 'Cancellation deadline has passed');
-    }
-
-    await this.bookings.updateOne(
-      { _id: new ObjectId(bookingId) },
-      {
-        $set: {
-          status: BookingStatus.CANCELLED,
-          cancellationReason: cancelData.cancellationReason,
-          updatedAt: new Date(),
-        },
-      },
-    );
-
-    return {
+    const updatedBooking: Booking = {
       ...booking,
       status: BookingStatus.CANCELLED,
       cancellationReason: cancelData.cancellationReason,
       updatedAt: new Date(),
     };
+
+    await this.bookings.updateOne({ _id: new ObjectId(bookingId) }, { $set: updatedBooking });
+
+    return updatedBooking;
   }
 }
