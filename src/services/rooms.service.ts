@@ -5,6 +5,7 @@ import { HttpException } from '@exceptions/HttpException';
 import { Room } from '@interfaces/rooms.interface';
 import { db } from '@utils/mongodb';
 import { BookingStatus } from '@interfaces/bookings.interface';
+import { UpdateRoomDto } from '@dtos/rooms.dto';
 
 @Service()
 export class RoomService {
@@ -16,7 +17,10 @@ export class RoomService {
 
   public async findAllRooms(): Promise<Room[]> {
     const rooms = await this.rooms.find().toArray();
-    return rooms;
+    return rooms.map(room => ({
+      ...room,
+      id: room._id.toString(),
+    }));
   }
 
   public async findRoomById(roomId: string): Promise<Room> {
@@ -26,11 +30,12 @@ export class RoomService {
   }
 
   public async createRoom(roomData: CreateRoomDto): Promise<Room> {
-    const existingRoom = await this.rooms.findOne({ roomNumber: roomData.roomNumber });
-    if (existingRoom) throw new HttpException(409, `Room number ${roomData.roomNumber} already exists`);
-
     const newRoom: Room = {
-      ...roomData,
+      roomNumber: roomData.roomNumber,
+      type: roomData.type,
+      price: roomData.price,
+      isAvailable: true,
+      description: roomData.description,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -39,13 +44,26 @@ export class RoomService {
     return { ...newRoom, _id: result.insertedId };
   }
 
-  public async updateRoom(roomId: string, roomData: CreateRoomDto): Promise<Room> {
-    const room = await this.rooms.findOne({ _id: new ObjectId(roomId) });
-    if (!room) throw new HttpException(404, "Room doesn't exist");
+  public async updateRoom(roomId: string, roomData: UpdateRoomDto): Promise<Room> {
+    if (!ObjectId.isValid(roomId)) {
+      throw new HttpException(400, 'Invalid room ID format');
+    }
 
-    await this.rooms.updateOne({ _id: new ObjectId(roomId) }, { $set: roomData });
+    const existingRoom = await this.rooms.findOne({ _id: new ObjectId(roomId) });
+    if (!existingRoom) {
+      throw new HttpException(404, "Room doesn't exist");
+    }
 
-    return { ...roomData, _id: new ObjectId(roomId) };
+    const updateRoomData = {
+      ...existingRoom,
+      ...roomData,
+      updatedAt: new Date(),
+      isAvailable: roomData.isAvailable ?? existingRoom.isAvailable,
+    };
+
+    await this.rooms.updateOne({ _id: new ObjectId(roomId) }, { $set: updateRoomData });
+
+    return updateRoomData;
   }
 
   public async deleteRoom(roomId: string): Promise<void> {

@@ -1,6 +1,6 @@
 import { Service } from 'typedi';
 import { Collection, ObjectId } from 'mongodb';
-import { CreateBookingDto, UpdateBookingDto } from '@dtos/bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, CancelBookingDto } from '@dtos/bookings.dto';
 import { HttpException } from '@exceptions/HttpException';
 import { Booking, BookingStatus } from '@interfaces/bookings.interface';
 import { db } from '@utils/mongodb';
@@ -17,6 +17,23 @@ export class BookingService {
     this.bookings.createIndex({ roomId: 1, startDate: 1, endDate: 1 });
     this.bookings.createIndex({ userId: 1 });
     this.bookings.createIndex({ status: 1 });
+  }
+
+  public async getBookingById(bookingId: string, userId: string): Promise<Booking> {
+    if (!ObjectId.isValid(bookingId)) {
+      throw new HttpException(400, 'Invalid booking ID format');
+    }
+
+    const booking = await this.bookings.findOne({
+      _id: new ObjectId(bookingId),
+      userId: new ObjectId(userId),
+    });
+
+    if (!booking) {
+      throw new HttpException(404, 'Booking not found');
+    }
+
+    return booking;
   }
 
   public async createBooking(userId: string, bookingData: CreateBookingDto): Promise<Booking> {
@@ -58,17 +75,48 @@ export class BookingService {
   }
 
   public async updateBookingStatus(bookingId: string, userId: string, updateData: UpdateBookingDto): Promise<Booking> {
-    const booking = await this.bookings.findOne({
-      _id: new ObjectId(bookingId),
-      userId: new ObjectId(userId),
-    });
+    const booking = await this.getBookingById(bookingId, userId);
 
-    if (!booking) {
-      throw new HttpException(404, 'Booking not found');
+    await this.bookings.updateOne(
+      { _id: new ObjectId(bookingId) },
+      {
+        $set: {
+          status: updateData.status,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    return { ...booking, status: updateData.status, updatedAt: new Date() };
+  }
+
+  public async cancelBooking(bookingId: string, userId: string, cancelData: CancelBookingDto): Promise<Booking> {
+    const booking = await this.getBookingById(bookingId, userId);
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new HttpException(400, 'Booking is already cancelled');
     }
 
-    await this.bookings.updateOne({ _id: new ObjectId(bookingId) }, { $set: { status: updateData.status } });
+    if (new Date() > booking.cancellationDeadline) {
+      throw new HttpException(400, 'Cancellation deadline has passed');
+    }
 
-    return { ...booking, status: updateData.status };
+    await this.bookings.updateOne(
+      { _id: new ObjectId(bookingId) },
+      {
+        $set: {
+          status: BookingStatus.CANCELLED,
+          cancellationReason: cancelData.cancellationReason,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    return {
+      ...booking,
+      status: BookingStatus.CANCELLED,
+      cancellationReason: cancelData.cancellationReason,
+      updatedAt: new Date(),
+    };
   }
 }

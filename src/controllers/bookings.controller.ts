@@ -1,29 +1,60 @@
-import { Param, Body, Get, Post, Put, JsonController, Req } from 'routing-controllers';
+import { Param, Body, Get, Post, Put, JsonController, Req, Authorized } from 'routing-controllers';
 import { Container, Service } from 'typedi';
-import { CreateBookingDto, UpdateBookingDto } from '@dtos/bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, CancelBookingDto } from '@dtos/bookings.dto';
 import { BookingService } from '@services/bookings.service';
 import { RequestWithUser } from '@interfaces/auth.interface';
+import { Booking } from '@interfaces/bookings.interface';
 
 @Service()
 @JsonController()
 export class BookingController {
   public booking = Container.get(BookingService);
 
+  private transformResponse(booking: Booking) {
+    return {
+      ...booking,
+      id: booking._id.toString(),
+      _id: booking._id.toString(),
+      roomId: booking.roomId.toString(),
+      userId: booking.userId.toString(),
+    };
+  }
+
   @Post('/bookings')
+  @Authorized()
   async createBooking(@Body() bookingData: CreateBookingDto, @Req() req: RequestWithUser) {
     const createBookingData = await this.booking.createBooking(req.user._id.toString(), bookingData);
-    return { data: createBookingData, message: 'created' };
+    return { data: this.transformResponse(createBookingData), message: 'created' };
   }
 
   @Get('/bookings')
+  @Authorized()
   async getUserBookings(@Req() req: RequestWithUser) {
     const bookings = await this.booking.getUserBookings(req.user._id.toString());
-    return { data: bookings, message: 'findAll' };
+    return {
+      data: bookings.map(booking => this.transformResponse(booking)),
+      message: 'findAll',
+    };
+  }
+
+  @Get('/bookings/:id')
+  @Authorized()
+  async getBooking(@Param('id') bookingId: string, @Req() req: RequestWithUser) {
+    const booking = await this.booking.getBookingById(bookingId, req.user._id.toString());
+    return { data: this.transformResponse(booking), message: 'findOne' };
   }
 
   @Put('/bookings/:id')
+  @Authorized()
   async updateBookingStatus(@Param('id') bookingId: string, @Body() updateData: UpdateBookingDto, @Req() req: RequestWithUser) {
     const updatedBooking = await this.booking.updateBookingStatus(bookingId, req.user._id.toString(), updateData);
-    return { data: updatedBooking, message: 'updated' };
+    return { data: this.transformResponse(updatedBooking), message: 'updated' };
+  }
+
+  @Put('/bookings/:id/cancel')
+  @Authorized()
+  async cancelBooking(@Param('id') bookingId: string, @Body() cancelData: CancelBookingDto, @Req() req: RequestWithUser) {
+    const cancelledBooking = await this.booking.cancelBooking(bookingId, req.user._id.toString(), cancelData);
+    return { data: this.transformResponse(cancelledBooking), message: 'cancelled' };
   }
 }

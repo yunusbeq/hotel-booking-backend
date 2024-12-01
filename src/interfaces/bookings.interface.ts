@@ -10,6 +10,7 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   cancellationDeadline: Date;
+  cancellationReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }

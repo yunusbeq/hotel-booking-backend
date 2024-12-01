@@ -1,13 +1,14 @@
 import { ObjectId } from 'mongodb';
 
 export enum RoomType {
-  BASIC = 'basic',
-  PREMIUM = 'premium',
-  SUITE = 'suite',
+  STANDARD = 'STANDARD',
+  DELUXE = 'DELUXE',
+  SUITE = 'SUITE',
 }
 
 export interface Room {
   _id?: ObjectId;
+  id?: string;
   roomNumber: string;
   type: RoomType;
   price: number;
