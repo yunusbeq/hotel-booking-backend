@@ -11,7 +11,6 @@ Backend API for a hotel room booking system built with Node.js, Express, TypeScr
 - Booking management
 - Role-based access control
 - Real-time availability checking
-- Caching with Redis (optional)
 
 ## Prerequisites
 - Typescript
