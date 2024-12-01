@@ -21,6 +21,9 @@ class Database {
 
   async connect(): Promise<void> {
     try {
+      if (!this.client) {
+        throw new Error('MongoDB client is not initialized');
+      }
       await this.client.connect();
       this.db = this.client.db(DB_NAME);
       logger.info('Connected to MongoDB');
@@ -31,6 +34,9 @@ class Database {
   }
 
   getDb(): Db {
+    if (!this.db) {
+      throw new Error('Database not initialized. Call connect() first.');
+    }
     return this.db;
   }
 }

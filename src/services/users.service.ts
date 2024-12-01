@@ -11,7 +11,12 @@ export class UserService {
   private users: Collection<User>;
 
   constructor() {
-    this.users = db.getDb().collection<User>('users');
+    try {
+      this.users = db.getDb().collection<User>('users');
+      this.users.createIndex({ email: 1 }, { unique: true });
+    } catch (error) {
+      throw new Error('Database initialization failed in UserService');
+    }
   }
 
   public async findAllUser(): Promise<User[]> {
@@ -20,24 +25,42 @@ export class UserService {
   }
 
   public async findUserById(userId: string): Promise<User> {
-    const findUser = await this.users.findOne({ _id: new ObjectId(userId) });
-    if (!findUser) throw new HttpException(409, "User doesn't exist");
+    try {
+      if (!ObjectId.isValid(userId)) {
+        throw new HttpException(400, 'Invalid user ID format');
+      }
 
-    return findUser;
+      const findUser = await this.users.findOne({ _id: new ObjectId(userId) });
+      if (!findUser) throw new HttpException(404, "User doesn't exist");
+
+      return findUser;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(500, 'Internal server error while finding user');
+    }
   }
 
   public async createUser(userData: CreateUserDto): Promise<User> {
-    const findUser = await this.users.findOne({ email: userData.email });
-    if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
+    try {
+      if (!userData.email || !userData.password) {
+        throw new HttpException(400, 'Email and password are required');
+      }
 
-    const hashedPassword = await hash(userData.password, 10);
-    const createUserData: User = {
-      email: userData.email,
-      password: hashedPassword,
-    };
+      const findUser = await this.users.findOne({ email: userData.email });
+      if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
 
-    const result = await this.users.insertOne(createUserData);
-    return { ...createUserData, _id: result.insertedId };
+      const hashedPassword = await hash(userData.password, 10);
+      const createUserData: User = {
+        email: userData.email.toLowerCase(),
+        password: hashedPassword,
+      };
+
+      const result = await this.users.insertOne(createUserData);
+      return { ...createUserData, _id: result.insertedId };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(500, 'Internal server error while creating user');
+    }
   }
 
   public async updateUser(userId: string, userData: CreateUserDto): Promise<User> {

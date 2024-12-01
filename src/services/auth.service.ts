@@ -10,7 +10,9 @@ import { User } from '@interfaces/users.interface';
 import { db } from '@utils/mongodb';
 
 const createToken = (user: User): TokenData => {
-  const dataStoredInToken: Omit<User, 'password'> = { _id: user._id, email: user.email };
+  const dataStoredInToken: DataStoredInToken = {
+    id: user._id.toString(),
+  };
   const expiresIn: number = 60 * 60;
 
   return { expiresIn, token: sign(dataStoredInToken, SECRET_KEY, { expiresIn }) };
