@@ -16,6 +16,7 @@ Backend API for a hotel room booking system built with Node.js, Express, TypeScr
 
 - Typescript
 - Node.js (v14+)
+- Express
 - MongoDB
 
 ## Installation
