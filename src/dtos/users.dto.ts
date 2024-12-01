@@ -1,4 +1,5 @@
-import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, IsEnum, IsOptional } from 'class-validator';
+import { UserRole } from '../interfaces/users.interface';
 
 export class CreateUserDto {
   @IsEmail()
@@ -9,6 +10,10 @@ export class CreateUserDto {
   @MinLength(3)
   @MaxLength(32)
   public password: string;
+
+  @IsEnum(UserRole)
+  @IsOptional()
+  public role?: UserRole = UserRole.CUSTOMER;
 }
 
 export class UpdateUserDto {

@@ -6,8 +6,9 @@ import { SECRET_KEY } from '@config';
 import { CreateUserDto } from '@dtos/users.dto';
 import { HttpException } from '@exceptions/HttpException';
 import { TokenData } from '@interfaces/auth.interface';
-import { User } from '@interfaces/users.interface';
+import { User, UserRole } from '@interfaces/users.interface';
 import { db } from '@utils/mongodb';
+import { DataStoredInToken } from '@interfaces/auth.interface';
 
 const createToken = (user: User): TokenData => {
   const dataStoredInToken: DataStoredInToken = {
@@ -34,6 +35,9 @@ export class AuthService {
     const result = await this.users.insertOne({
       email: userData.email,
       password: hashedPassword,
+      role: userData.role || UserRole.CUSTOMER,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const newUser = await this.users.findOne({ _id: result.insertedId });

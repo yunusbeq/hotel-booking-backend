@@ -1,10 +1,15 @@
 import { ObjectId } from 'mongodb';
 
+export enum UserRole {
+  ADMIN = 'admin',
+  CUSTOMER = 'customer',
+}
+
 export interface User {
   _id?: ObjectId;
   email: string;
   password: string;
-  isAdmin: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  role: UserRole;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
