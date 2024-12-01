@@ -14,7 +14,7 @@ Backend API for a hotel room booking system built with Node.js, Express, TypeScr
 - Caching with Redis (optional)
 
 ## Prerequisites
-
+- Typescript
 - Node.js (v14+)
 - MongoDB
 
